@@ -4320,7 +4320,10 @@ R3.init = function (cv) {
   catch (e) { console.warn('3D unavailable', e); R3.ok = false; }
   return R3.ok;
 };
-R3.resize = function () { if (!R) return; const w = canvas.clientWidth || innerWidth, h = canvas.clientHeight || innerHeight; R.size(w, h, Math.min(root.devicePixelRatio || 1, isTouch ? 1.75 : 2)); };
+let rScale = 1;
+R3.resize = function () { if (!R) return; const w = canvas.clientWidth || innerWidth, h = canvas.clientHeight || innerHeight; R.size(w, h, Math.max(0.6, Math.min(root.devicePixelRatio || 1, isTouch ? 1.75 : 2) * rScale)); };
+/* 重いとき（トラック配送など）は描く解像度を下げる */
+R3.setRenderScale = function (k) { k = Math.max(0.4, Math.min(1, k)); if (Math.abs(k - rScale) < 0.01) return; rScale = k; R3.resize(); };
 
 /* ---------- テクスチャ（キャンバスで手描き） ---------- */
 function cvs(w, h, draw) { const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h); return c; }
@@ -4762,10 +4765,10 @@ const SITES = {
 Tk.SITES = SITES;
 /* 配送ルート（だんだん難しく） */
 const ROUTES = [
-  { id: 1, name: 'はじめての配送', sub: '昼・交通すくなめ', desc: '配送センターを出発して2か所へ。まずはトラックの大きさと、ミラーでの確認に慣れよう。', theme: 'day', traffic: 8, stops: ['A', 'B'], slack: [1.6, 1.3], limit: 600, base: 300 },
-  { id: 2, name: '商店街まわり', sub: '昼・交通ふつう', desc: '市場と酒屋に配達して、配送センターへ戻る。搬入口は少しせまい。', theme: 'day', traffic: 14, stops: ['C', 'F', 'D'], slack: [1.25, 1.0], limit: 780, base: 450 },
-  { id: 3, name: '夕方のラッシュ', sub: '夕暮れ・交通おおい', desc: '帰宅ラッシュの町。車間距離と信号に気をつけて3か所をまわろう。', theme: 'dusk', traffic: 22, stops: ['E', 'G', 'D'], slack: [1.05, 0.85], limit: 840, base: 600 },
-  { id: 4, name: '夜間便', sub: '夜・ライトをたよりに', desc: '夜の町を走る配送便。暗い搬入口へミラーとバックカメラでぴったり停めよう。', theme: 'night', traffic: 12, stops: ['B', 'F', 'D'], slack: [0.95, 0.75], limit: 840, base: 800 },
+  { id: 1, name: 'はじめての配送', sub: '昼・交通すくなめ', desc: '配送センターを出発して2か所へ。まずはトラックの大きさと、ミラーでの確認に慣れよう。', theme: 'day', traffic: 8, stops: ['A', 'B'], slack: [1.6, 1.3], limit: 660, base: 300 },
+  { id: 2, name: '商店街まわり', sub: '昼・交通ふつう', desc: '市場と酒屋に配達して、配送センターへ戻る。搬入口は少しせまい。', theme: 'day', traffic: 14, stops: ['C', 'F', 'D'], slack: [1.25, 1.0], limit: 960, base: 450 },
+  { id: 3, name: '夕方のラッシュ', sub: '夕暮れ・交通おおい', desc: '帰宅ラッシュの町。車間距離と信号に気をつけて3か所をまわろう。', theme: 'dusk', traffic: 22, stops: ['E', 'G', 'D'], slack: [1.05, 0.85], limit: 960, base: 600 },
+  { id: 4, name: '夜間便', sub: '夜・ライトをたよりに', desc: '夜の町を走る配送便。暗い搬入口へミラーとバックカメラでぴったり停めよう。', theme: 'night', traffic: 12, stops: ['B', 'F', 'D'], slack: [0.95, 0.75], limit: 960, base: 800 },
 ];
 Tk.ROUTES = ROUTES;
 
@@ -4993,14 +4996,16 @@ function stepTraffic(city, cars, truckPoly, t, dt) {
 Tk.spawnTraffic = spawnTraffic; Tk.stepTraffic = stepTraffic;
 
 /* ================= 道案内（交差点のグラフでA*） ================= */
-function nearestSeg(city, x, y) {
-  let best = null;
-  for (const s of city.segs) { const a = city.nodes[s.a]; const t = clamp(V2.dot([x - a.x, y - a.y], s.d), 0, s.len); const px = a.x + s.d[0] * t, py = a.y + s.d[1] * t, d = Math.hypot(px - x, py - y); if (!best || d < best.d) best = { s, d, t }; }
+function nearestSeg(city, x, y, th) {
+  let best = null; const all = [];
+  for (const s of city.segs) { const a = city.nodes[s.a]; const t = clamp(V2.dot([x - a.x, y - a.y], s.d), 0, s.len); const px = a.x + s.d[0] * t, py = a.y + s.d[1] * t, d = Math.hypot(px - x, py - y); const e = { s, d, t }; all.push(e); if (!best || d < best.d) best = e; }
+  /* 交差点の中では、近い道のうち「いま向いている向き」に近い道を選ぶ（まっすぐ抜けるときに横の道と取り違えない） */
+  if (th != null) { const h = [Math.cos(th), Math.sin(th)]; let bs = -1e9, pick = best; for (const e of all) { if (e.d > best.d + CY.RW / 2 + 0.5) continue; const sc = Math.abs(V2.dot(h, e.s.d)) * 10 - e.d - (e.t <= 0.01 || e.t >= e.s.len - 0.01 ? 0.3 : 0); if (sc > bs) { bs = sc; pick = e; } } best = pick; }
   return best;
 }
 function route(city, x, y, th, dock) {
   /* いまの区間と向きから「次の交差点」を出発点に */
-  const ns = nearestSeg(city, x, y), s = ns.s, h = [Math.cos(th), Math.sin(th)];
+  const ns = nearestSeg(city, x, y, th), s = ns.s, h = [Math.cos(th), Math.sin(th)];
   const fwd = V2.dot(h, s.d) >= 0, startN = fwd ? s.b : s.a, prevN = fwd ? s.a : s.b;
   /* 目的地：搬入口の前の区間の両端（近い方） */
   const goals = [dock.seg.a, dock.seg.b];
@@ -5033,7 +5038,7 @@ Tk.nav = function (run) {
     const o = opts[0], dir = [Math.cos(o.t), Math.sin(o.t)];
     return { k: V2.cross(hv0, dir) > 0 ? 'R' : 'L', dist: Math.max(0, ns0.d - CY.LW / 2), path: o.rr, dock: dk, exit: true };
   }
-  const r = route(city, car.rx, car.ry, car.th, dk);
+  const fa = [car.rx + Math.cos(car.th) * car.m.wb, car.ry + Math.sin(car.th) * car.m.wb], r = route(city, fa[0], fa[1], car.th, dk);
   if (r.onTarget) {
     const s = r.ns.s, a = ln[s.a], m = dk.mouth, hv = [Math.cos(car.th), Math.sin(car.th)];
     const dist = V2.dot(V2.sub(m, fr), hv), side = V2.cross(hv, V2.sub(m, [car.rx, car.ry])) > 0 ? 1 : -1; void a;
@@ -5069,7 +5074,7 @@ Tk.step = function (run, inp, dt) {
   const prevFront = front(car);
   for (let i = 0; i < n; i++) {
     C.stepCar(car, run.unload > 0 ? { steer: inp.steer, thr: 0, brk: 1 } : inp, h);
-    resolve(run);
+    resolve(run, h);
   }
   run.odo += Math.abs(car.v) * dt;
   /* 交通 */
@@ -5128,7 +5133,7 @@ Tk.step = function (run, inp, dt) {
 };
 function front(car) { const m = car.m, off = m.len - m.rearAx; return [car.rx + Math.cos(car.th) * off, car.ry + Math.sin(car.th) * off]; }
 Tk.front = front;
-function resolve(run) {
+function resolve(run, h) {
   const car = run.car, m = car.m, R = Math.hypot(m.len / 2, m.wid / 2);
   const dyn = run.cars.map(c => Object.assign(polyObs(aiPoly(c), 'car', c)));
   let P = C.carPoly(car), c = C.carCenter(car);
@@ -5140,15 +5145,20 @@ function resolve(run) {
       if (o.kind === 'car') { const ai = o.ref; ai.stopT = 2.5; ai.v = 0; }
       car.rx += r.nx * (r.o + 0.002); car.ry += r.ny * (r.o + 0.002);
       const vx = Math.cos(car.th) * car.v, vy = Math.sin(car.th) * car.v, vn = vx * r.nx + vy * r.ny;
-      if (vn < -0.02) { hit(run, -vn, o); car.v = -car.v * 0.12; }
+      if (vn < -0.02) {
+        const ratio = -vn / Math.max(Math.abs(car.v), 0.01);
+        /* 浅い角度でこすっただけなら止めない（減速しながら縁石に沿って進める）。正面からぶつかったら止まって少し跳ね返る */
+        if (o.kind !== 'car' && ratio < 0.45) { car.v -= Math.sign(car.v) * Math.min(Math.abs(car.v), 7 * ratio * (h || 0.01)); if (-vn > 0.45) hit(run, -vn, o, 2.5); }
+        else { hit(run, -vn, o); car.v = -car.v * 0.12; }
+      }
       P = C.carPoly(car); c = C.carCenter(car);
     }
     if (!any) break;
   }
 }
-function hit(run, sp, o) {
+function hit(run, sp, o, cool) {
   const kmh = sp * 3.6; if (kmh < 1.2) return;
-  const key = o.ref || o, lt = run.lastHit.get(key) || -9; if (run.t - lt < 1.0) return; run.lastHit.set(key, run.t);
+  const key = o.ref || o, lt = run.lastHit.get(key) || -9; if (run.t - lt < (cool || 1.0)) return; run.lastHit.set(key, run.t);
   const d = Math.max(1, Math.round((2 + kmh * 1.3) / TRUCK.dur * (o.kind === 'car' ? 1.3 : o.kind === 'curb' ? 0.6 : 1))); run.dmg = Math.min(100, run.dmg + d);
   penal(run, o.kind === 'car' ? 'car' : o.kind === 'curb' ? 'curb' : 'wall');
   run.ev.push({ t: 'hit', kind: o.kind, kmh, d });
@@ -5742,6 +5752,7 @@ T3.lookEnd = function () { HEAD.drag = false; HEAD.idle = 0; };
 T3.mirror = function (side) { HEAD.mirror = side; };
 T3.resetLook = function () { HEAD.tyaw = 0; HEAD.tpitch = -0.14; HEAD.idle = 9; S.outYaw = 0; S.outPit = 0; };
 T3.setView = function (v) { S.view = v; S.oc = null; };
+T3.setLowQ = function (b) { S.lowQ = !!b; };
 T3.setFov = function (k) { S.fovK = { n: 0.86, m: 1, w: 1.16 }[k] || 1; };
 T3.headInfo = function () { return { yaw: HEAD.yaw, pitch: HEAD.pitch, mirror: HEAD.mirror }; };
 function spring(cur, vel, tgt, w, dt) { const a = w * w * (tgt - cur) - 2 * w * vel; vel += a * dt; return [cur + vel * dt, vel]; }
@@ -5836,9 +5847,10 @@ T3.frame = function (run, st, dt) {
     for (const mi of MIR) {
       if (!mi.rt) continue;
       const Pm = M.xform(BC, mi.c), Nm = V.norm(M.xdir(BC, mi.f.n));
-      const fw = V.norm(V.sub(cam.target, cam.pos)), tm = V.norm(V.sub(Pm, cam.pos)), hf = Math.atan(Math.tan(cam.fov / 2) * asp) + 0.25;
+      const fw = V.norm(V.sub(cam.target, cam.pos)), tm = V.norm(V.sub(Pm, cam.pos)), hf = Math.atan(Math.tan(cam.fov / 2) * asp) + 0.12;
       const vis = Math.acos(clamp(V.dot(fw, tm), -1, 1)) < hf;
       if (!vis && S.mirFlip % 8) continue;
+      if (S.lowQ && vis && !HEAD.mirror && (S.mirFlip + (mi.side > 0 ? 0 : 1)) % 2) continue;   /* 重いときは左右を1フレームおきに */
       const E = eyeW, k = 2 * V.dot(V.sub(E, Pm), Nm), Ep = V.sub(E, V.mul(Nm, k)), dist = V.len(V.sub(Pm, Ep));
       const sc = { items: S.mirItems, env: S.env, cam: { pos: Ep, target: Pm, up: upW, fov: 2 * Math.atan(mi.h * mi.K / 2 / dist), near: dist * 0.92, far: 260 }, shadow: null };
       R.render(sc, mi.rt);
@@ -6960,7 +6972,7 @@ function truckBegin() {
 }
 function exitTruck() {
   if (!TK.on) return;
-  TK.on = false; TK.run = null; T3.unload(); Sfx.mul = 0; Sfx.engineOff(); Sfx.hornOff();
+  TK.on = false; TK.run = null; T3.unload(); TK.scale = 1; TK.ft = 0; TK.lastNow = 0; R3.setRenderScale(1); T3.setLowQ(false); Sfx.mul = 0; Sfx.engineOff(); Sfx.hornOff();
   $('#game').classList.remove('tk'); $('#thud').classList.add('hidden'); $('#tkeys').classList.add('hidden'); $('#tk-lookhint').classList.add('hidden');
   G.car = null; if (G.state !== 'idle') G.state = 'idle';
 }
@@ -7041,6 +7053,12 @@ function truckView() {
   toast(TK.view === 'cab' ? '視点：運転席' : '視点：外から（ドラッグで回転）', 1000);
 }
 function truckFrame(dt) {
+  /* 処理が重い端末では、なめらかさを優先して描く解像度を自動で下げる（軽ければ戻す） */
+  const now = performance.now(); if (TK.lastNow) { const fdt = Math.min(0.2, (now - TK.lastNow) / 1000); TK.ft = TK.ft ? TK.ft * 0.93 + fdt * 0.07 : fdt; } TK.lastNow = now;
+  TK.qT = (TK.qT || 0) + dt;
+  if (TK.qT > 2 && !modalOpen()) { TK.qT = 0; const sc = TK.scale || 1;
+    if (TK.ft > 1 / 40 && sc > 0.55) { TK.scale = Math.max(0.55, sc - 0.15); R3.setRenderScale(TK.scale); T3.setLowQ(true); }
+    else if (TK.ft < 1 / 56 && sc < 1) { TK.scale = Math.min(1, sc + 0.1); R3.setRenderScale(TK.scale); T3.setLowQ(TK.scale < 0.95); } }
   const inp = truckUpdate(dt), run = TK.run, st = G.state;
   TK.nav = T3.navTick(run, dt);
   const braking = st === 'play' && (inp.brk > 0 || run.unload > 0);

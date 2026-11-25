@@ -4579,7 +4579,7 @@ function updateGuide(st, on) {
 }
 
 /* ---------- カメラ ---------- */
-R3.camDrag = function (dx, dy) { const c = W.camS; if (!c) return; if (c.mode === 'follow') c.yawOff -= dx * 0.0085; else c.yawW -= dx * 0.0085; if (c.mode !== 'top') c.pitch = clamp(c.pitch + dy * 0.006, 0.12, 1.5); };
+R3.camDrag = function (dx, dy) { const c = W.camS; if (!c) return; if (c.mode === 'follow') c.yawOff += dx * 0.0085; else c.yawW += dx * 0.0085; if (c.mode !== 'top') c.pitch = clamp(c.pitch + dy * 0.006, 0.12, 1.5); };
 R3.camZoom = function (f) { const c = W.camS; if (!c) return; c.dist = clamp(c.dist * f, 4, 70); };
 R3.camReset = function () { const c = W.camS; if (!c) return; const d = CAMDEF[c.mode]; c.yawOff = 0; c.pitch = d.pitch; c.dist = d.dist; if (c.mode !== 'follow') c.yawW = PI / 2; };
 R3.camMode = function (mode) {
@@ -5390,7 +5390,8 @@ function buildCity(city, th) {
   addW(G.merge(conc), MAT.concrete); addW(pg, MAT.paint); addW(yg, MAT.yel);
   /* 建物 */
   const fac = { office: [], apt: [], shop: [], ware: [] }, roofs = [], extras = [], awn = { '#c8442f': [], '#2f6fb3': [], '#2f8a4f': [], '#d9a520': [] };
-  const place = (x0, z0, x1, z1, h, kind) => { if (x1 - x0 < 3 || z1 - z0 < 3) return; const b = bld(x0, z0, x1, z1, h, 12, 12); fac[kind].push(b.side); roofs.push(b.top);
+  S.boxes = [];
+  const place = (x0, z0, x1, z1, h, kind) => { if (x1 - x0 < 3 || z1 - z0 < 3) return; S.boxes.push([x0, z0, x1, z1, h + 0.6]); const b = bld(x0, z0, x1, z1, h, 12, 12); fac[kind].push(b.side); roofs.push(b.top);
     if (rnd() < 0.6 && h > 6) { const ux = lerp(x0 + 1.5, x1 - 2.5, rnd()), uz = lerp(z0 + 1.5, z1 - 2.5, rnd()); extras.push(G.box(1.6, 1.1, 1.0).at(ux, h + 0.55, uz)); if (rnd() < 0.4) extras.push(G.cyl(0.9, 0.9, 1.8, 12).at(lerp(x0 + 1.5, x1 - 1.5, rnd()), h + 1.3, lerp(z0 + 1.5, z1 - 1.5, rnd()))); }
     extras.push(bld(x0 - 0.05, z0 - 0.05, x1 + 0.05, z1 + 0.05, 0.5, 4, 4, h).side); };
   const split = (x0, z0, x1, z1, depth, out) => { const w = x1 - x0, d = z1 - z0; if ((w < 26 && d < 26) || depth > 4) { out.push([x0, z0, x1, z1]); return; } const t = 0.38 + rnd() * 0.24; if (w > d) { const m = x0 + w * t; split(x0, z0, m, z1, depth + 1, out); split(m, z0, x1, z1, depth + 1, out); } else { const m = z0 + d * t; split(x0, z0, x1, m, depth + 1, out); split(x0, m, x1, z1, depth + 1, out); } };
@@ -5427,7 +5428,7 @@ function buildCity(city, th) {
     const pieces = [[SW, D.yl - 1.2, SW, Vd - SW], [D.yr + 1.2, U - SW, SW, Vd - SW], [D.yl - 1.2, D.bl, d.YD, Vd - SW], [D.br, D.yr + 1.2, d.YD, Vd - SW], [D.bl, D.br, d.YD + d.BD, Vd - SW]];
     for (const [u0, u1, v0, v1] of pieces) { if (u1 - u0 < 1 || v1 - v0 < 1) continue; const a = D.P(u0, v0), b = D.P(u1, v1); place(Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[0], b[0]), Math.max(a[1], b[1]), h, 'ware'); }
     /* 搬入口の上（屋根）・シャッター・車止め・看板 */
-    { const a = D.P(D.bl, d.YD), b = D.P(D.br, d.YD + d.BD); const x0 = Math.min(a[0], b[0]), x1 = Math.max(a[0], b[0]), z0 = Math.min(a[1], b[1]), z1 = Math.max(a[1], b[1]); const bb = bld(x0, z0, x1, z1, h - 5.0, 12, 12, 5.0); fac.ware.push(bb.side); roofs.push(bb.top); extras.push(G.box(x1 - x0, 0.1, z1 - z0).at((x0 + x1) / 2, 4.95, (z0 + z1) / 2)); }
+    { const a = D.P(D.bl, d.YD), b = D.P(D.br, d.YD + d.BD); const x0 = Math.min(a[0], b[0]), x1 = Math.max(a[0], b[0]), z0 = Math.min(a[1], b[1]), z1 = Math.max(a[1], b[1]); const bb = bld(x0, z0, x1, z1, h - 5.0, 12, 12, 5.0); S.boxes.push([x0, z0, x1, z1, h + 0.6, 4.8]); fac.ware.push(bb.side); roofs.push(bb.top); extras.push(G.box(x1 - x0, 0.1, z1 - z0).at((x0 + x1) / 2, 4.95, (z0 + z1) / 2)); }
     const back = D.P(d.bc, d.YD + d.BD - 0.02), nv = [-F.v[0], -F.v[1]], yaw = Math.atan2(-nv[0], -nv[1]);
     const sh = G.plane(d.BW - 0.3, 3.8); sh.apply(M.mul(M.trs(back[0], 2.0, back[1], yaw), M.rotX(PI / 2))); dockItems.push([sh, MAT.shutter]);
     for (const s of [-1, 1]) { const p = D.P(d.bc + s * (d.BW / 2 - 0.55), d.YD + d.BD - 0.15); dockItems.push([G.box(0.45, 0.4, 0.25).at(p[0], 1.15, p[1], yaw), MAT.rubber]); }
@@ -5526,7 +5527,7 @@ function updateSignals(t) {
 const TG = { body: [], cab: [], inner: [], wheels: [], mirrors: [] };
 function addT(grp, g, mat, extra) { if (!g || !g.count) return null; const it = Object.assign({ mesh: own(g), mat, m: M.ident() }, extra || {}); TG[grp].push(it); return it; }
 const CABP = [4.4, 1.2, 0];   /* キャブの揺れの支点 */
-const EYE0 = [4.06, 2.47, 0.55];
+const EYE0 = [4.12, 2.5, 0.55];
 /* ミラー：中心・上下の大きさ・向きは「目」と「後ろの道」の二等分 */
 const MIR = [
   { side: 1, c: [5.12, 2.52, 1.62], w: 0.27, h: 0.46, view: [-1, -0.06, 0.03], conv: [5.12, 2.08, 1.64, 0.25, 0.24] },
@@ -5643,7 +5644,7 @@ function buildCabin(th) {
   for (const s of [-1, 1]) add(G.box(0.03, 0.26, 0.62).at(5.3, 2.95, s * 0.56, 0, 0, 0.25), liner);   /* サンバイザー */
   /* フロントガラスの枠・ピラー */
   const fr = [];
-  for (const s of [-1, 1]) fr.push(G.box(0.14, 1.12, 0.16).at(5.41, 2.5, s * 1.16));
+  for (const s of [-1, 1]) fr.push(G.box(0.09, 1.12, 0.1).at(5.42, 2.5, s * 1.18));
   fr.push(G.box(0.2, 0.12, 2.42).at(5.38, 3.06, 0));
   add(G.merge(fr), dash2);
   add(panel([5.47, 2.5, 0], [-1, 0, 0], [0, 0, -1], [0, 1, 0], 2.24, 1.04), glassIn);
@@ -5735,12 +5736,13 @@ function aiGeo(spec) {
 /* ======================================================
    運転席の視点（首の動き・身の乗り出し・キャブの揺れ）
    ====================================================== */
-const HEAD = { yaw: 0, pitch: -0.2, vy: 0, vp: 0, lean: [0, 0, 0], vl: [0, 0, 0], tyaw: 0, tpitch: -0.2, idle: 9, drag: false, mirror: 0, fov: 1, vf: 0 };
-T3.look = function (dx, dy) { HEAD.tyaw = clamp(HEAD.tyaw - dx * 0.0042, -2.0, 2.1); HEAD.tpitch = clamp(HEAD.tpitch - dy * 0.0038, -0.75, 0.45); HEAD.idle = 0; HEAD.drag = true; if (S.view === 'out') S.outYaw -= dx * 0.006; };
+const HEAD = { yaw: 0, pitch: -0.14, vy: 0, vp: 0, lean: [0, 0, 0], vl: [0, 0, 0], tyaw: 0, tpitch: -0.14, idle: 9, drag: false, mirror: 0, fov: 1, vf: 0 };
+T3.look = function (dx, dy) { HEAD.tyaw = clamp(HEAD.tyaw - dx * 0.0042, -2.0, 2.1); HEAD.tpitch = clamp(HEAD.tpitch - dy * 0.0038, -0.75, 0.45); HEAD.idle = 0; HEAD.drag = true; if (S.view === 'out') { S.outYaw += dx * 0.006; S.outPit = clamp((S.outPit || 0) + dy * 0.005, -0.2, 0.9); } };
 T3.lookEnd = function () { HEAD.drag = false; HEAD.idle = 0; };
 T3.mirror = function (side) { HEAD.mirror = side; };
-T3.resetLook = function () { HEAD.tyaw = 0; HEAD.tpitch = -0.2; HEAD.idle = 9; S.outYaw = 0; };
+T3.resetLook = function () { HEAD.tyaw = 0; HEAD.tpitch = -0.14; HEAD.idle = 9; S.outYaw = 0; S.outPit = 0; };
 T3.setView = function (v) { S.view = v; S.oc = null; };
+T3.setFov = function (k) { S.fovK = { n: 0.86, m: 1, w: 1.16 }[k] || 1; };
 T3.headInfo = function () { return { yaw: HEAD.yaw, pitch: HEAD.pitch, mirror: HEAD.mirror }; };
 function spring(cur, vel, tgt, w, dt) { const a = w * w * (tgt - cur) - 2 * w * vel; vel += a * dt; return [cur + vel * dt, vel]; }
 function headStep(dt, car) {
@@ -5752,7 +5754,7 @@ function headStep(dt, car) {
   } else if (HEAD.drag || HEAD.idle < 1.4) {
     w = HEAD.drag ? 16 : 10;
     lean = [Math.max(0, -HEAD.pitch) * 0.12 + Math.abs(Math.sin(HEAD.yaw)) * 0.03, 0, -Math.sin(HEAD.yaw) * 0.08];
-  } else { ty = 0; tp = car.gear < 0 ? -0.24 : -0.2; w = 5.5; HEAD.tyaw = lerp(HEAD.tyaw, 0, 0.1); HEAD.tpitch = lerp(HEAD.tpitch, tp, 0.1); }
+  } else { const sn = clamp(car.steer / (car.m.steer * PI / 180), -1, 1), mv = clamp(Math.abs(car.v) / 3, 0, 1); ty = -sn * 0.24 * mv * (car.gear < 0 ? 0.5 : 1); tp = car.gear < 0 ? -0.18 : -0.14; w = 5; HEAD.tyaw = lerp(HEAD.tyaw, 0, 0.1); HEAD.tpitch = lerp(HEAD.tpitch, tp, 0.1); }
   if (!HEAD.drag) HEAD.idle += dt;
   let dy = angWrap_(ty - HEAD.yaw); [HEAD.yaw, HEAD.vy] = spring(HEAD.yaw, HEAD.vy, HEAD.yaw + dy, w, dt); [HEAD.pitch, HEAD.vp] = spring(HEAD.pitch, HEAD.vp, tp, w, dt);
   for (let k = 0; k < 3; k++) [HEAD.lean[k], HEAD.vl[k]] = spring(HEAD.lean[k], HEAD.vl[k], lean[k], 7, dt);
@@ -5761,7 +5763,7 @@ function headStep(dt, car) {
 const angWrap_ = a => Math.atan2(Math.sin(a), Math.cos(a));
 
 /* ---------- 毎フレーム ---------- */
-S.view = 'cab'; S.outYaw = 0; S.time = 0; S.acc = 0; S.lat = 0; S.lastV = 0; S.spin = 0; S.naviT = 0; S.cluT = 0;
+S.view = 'cab'; S.outYaw = 0; S.outPit = 0; S.time = 0; S.acc = 0; S.lat = 0; S.lastV = 0; S.spin = 0; S.naviT = 0; S.cluT = 0;
 T3.frame = function (run, st, dt) {
   if (!S.scene) return;
   const car = run.car, m = car.m, cc = C.carCenter(car); S.time += dt;
@@ -5801,10 +5803,20 @@ T3.frame = function (run, st, dt) {
     const dirL = [Math.cos(p) * Math.cos(y), Math.sin(p), -Math.cos(p) * Math.sin(y)];
     eyeW = M.xform(BC, eyeL); upW = V.norm(M.xdir(BC, [0, 1, 0]));
     cam.pos = eyeW; cam.target = V.add(eyeW, M.xdir(BC, dirL)); cam.up = upW;
-    cam.fov = (asp > 1.2 ? 1.02 : asp > 0.8 ? 1.3 : 1.55) * HEAD.fov; cam.near = 0.04; cam.far = 520;
+    const fk = S.fovK || 1, vf = asp >= 1 ? clamp(2 * Math.atan(Math.tan(1.47 * fk / 2) / asp), 0.7, 1.1 * fk) : asp > 0.8 ? 1.25 * fk : 1.45 * fk;
+    cam.fov = vf * HEAD.fov; cam.near = 0.04; cam.far = 520;
   } else {
     const fwd = [Math.cos(car.th), 0, Math.sin(car.th)], a = car.th + PI + S.outYaw + (st.intro ? S.time * 0.25 : 0), r = st.intro ? 22 : 19;
-    const tgt = [cc[0] + fwd[0] * 2, 2.2, cc[1] + fwd[2] * 2], pos = [cc[0] + Math.cos(a) * r, st.intro ? 9 : 7.5, cc[1] + Math.sin(a) * r];
+    const el = st.intro ? 0.33 : 0.29 + (S.outPit || 0), tgt = [cc[0] + fwd[0] * 2, 2.2, cc[1] + fwd[2] * 2]; let pos = [cc[0] + Math.cos(a) * r * Math.cos(el), 2.2 + r * Math.sin(el), cc[1] + Math.sin(a) * r * Math.cos(el)];
+    if (!st.intro) {
+      const near = (S.boxes || []).filter(b => b[0] - 26 < cc[0] && b[2] + 26 > cc[0] && b[1] - 26 < cc[1] && b[3] + 26 > cc[1]);
+      const hitAt = p => { for (let k = 2; k <= 20; k++) { const t = k / 20, x = tgt[0] + (p[0] - tgt[0]) * t, y = tgt[1] + (p[1] - tgt[1]) * t, z = tgt[2] + (p[2] - tgt[2]) * t; for (const b of near) if (x > b[0] && x < b[2] && z > b[1] && z < b[3] && y < b[4] && y > (b[5] || -1)) return true; } return false; };
+      if (hitAt(pos)) {
+        let found = null;
+        for (const da of [0.45, -0.45, 0.9, -0.9, 1.5, -1.5, 2.2, -2.2, PI]) { for (const f of [1, 0.75, 0.55]) { const aa = a + da, p = [cc[0] + Math.cos(aa) * r * f * Math.cos(el), 2.2 + r * f * Math.sin(el) + (1 - f) * 4, cc[1] + Math.sin(aa) * r * f * Math.cos(el)]; if (!hitAt(p)) { found = p; break; } } if (found) break; }
+        if (found) pos = found; else { pos = [cc[0] + Math.cos(a) * 6, 16, cc[1] + Math.sin(a) * 6]; }
+      }
+    }
     S.oc = S.oc && V.len(V.sub(S.oc, pos)) < 30 ? V.lerp(S.oc, pos, 1 - Math.exp(-dt * 4)) : pos;
     cam.pos = S.oc; cam.target = tgt; cam.up = [0, 1, 0]; cam.fov = 0.9; cam.near = 0.1; cam.far = 520;
     eyeW = cam.pos; upW = [0, 1, 0];
@@ -5841,7 +5853,17 @@ T3.frame = function (run, st, dt) {
     R.render({ items: S.bcItems, env: S.env, cam: { pos: p0, target: p1, up: [0, 1, 0], fov: 1.25, near: 0.1, far: 120 }, shadow: null }, S.bc);
     for (const it of S.bcGuide) it.hidden = true;
     S.naviBC.map = S.bc.tex; S.naviBC.mapLin = S.bc.hdr ? 1 : 2; S.naviBC.hidden = S.view !== 'cab' || st.intro; S.navi.hidden = true;
+    S.pip.map = S.bc.tex; S.pip.mapLin = S.bc.hdr ? 1 : 2;
   } else { S.naviBC.hidden = true; S.navi.hidden = S.view !== 'cab' || !!st.intro; }
+  const pipOn = rev && S.bc && S.view === 'cab' && !st.intro && !HEAD.mirror;
+  S.pip.hidden = S.pipB.hidden = !pipOn;
+  if (pipOn) {
+    const f = V.norm(V.sub(cam.target, cam.pos)), rr = V.norm(V.cross(f, cam.up)), uu = V.cross(rr, f), D = 0.3, hh = D * Math.tan(cam.fov / 2), hw = hh * asp;
+    const land = asp >= 1, hF = land ? 0.33 : 0.15, cx = land ? 0.47 : 0, cy = land ? 0.15 : -0.1, ph = hF * 2 * hh, pw = ph * 1.653;
+    const c = V.add(V.add(V.add(cam.pos, V.mul(f, D)), V.mul(rr, cx * hw)), V.mul(uu, cy * hh));
+    const mk = (cc, w, h) => { const m = M.ident(); m[0] = rr[0] * w; m[1] = rr[1] * w; m[2] = rr[2] * w; m[4] = uu[0] * h; m[5] = uu[1] * h; m[6] = uu[2] * h; m[8] = -f[0]; m[9] = -f[1]; m[10] = -f[2]; m[12] = cc[0]; m[13] = cc[1]; m[14] = cc[2]; return m; };
+    S.pip.m = mk(c, pw, ph); S.pipB.m = mk(V.add(c, V.mul(f, 0.001)), pw + ph * 0.08, ph * 1.08);
+  }
   /* メーターとナビ（キャンバスに描いて画面へ） */
   S.cluT -= dt; if (S.cluT <= 0) { S.cluT = 1 / 15; drawCluster(run, st); R.updTex(S.cluTex, S.cluCv); }
   S.naviT -= dt; if (S.naviT <= 0 && !rev) { S.naviT = 1 / 6; drawNavi(run); R.updTex(S.naviTex, S.naviCv); }
@@ -5954,7 +5976,7 @@ T3.load = function (run) {
   const th = run.R.theme; S.th = th; S.run = run; S.cv = R3.canvasEl();
   S.world = []; S.trees = []; S.vends = []; S.signs = []; S.lamps = []; S.ai = []; S.dockMarks = []; S.oc = null; S.time = 0; S.lastV = 0; S.acc = 0; S.lat = 0; S.view = 'cab'; S.outYaw = 0;
   for (const k in TG) TG[k] = [];
-  Object.assign(HEAD, { yaw: 0, pitch: -0.2, vy: 0, vp: 0, lean: [0, 0, 0], vl: [0, 0, 0], tyaw: 0, tpitch: -0.2, idle: 9, drag: false, mirror: 0, fov: 1, vf: 0 });
+  Object.assign(HEAD, { yaw: 0, pitch: -0.14, vy: 0, vp: 0, lean: [0, 0, 0], vl: [0, 0, 0], tyaw: 0, tpitch: -0.14, idle: 9, drag: false, mirror: 0, fov: 1, vf: 0 });
   mats(th); buildCity(run.city, th); buildTruck(th);
   /* 環境（昼・夕暮れ・夜） */
   const night = th === 'night', dusk = th === 'dusk';
@@ -5995,7 +6017,11 @@ T3.load = function (run) {
   S.bc = R.rt(Math.round(400 * q), Math.round(242 * q), true);
   /* 描く物の一覧 */
   const aiIts = [].concat(...S.ai.map(a => a.its)), marks = [].concat(...S.dockMarks.map(d => [d.plane, d.arrow])), wheels = [].concat(...TG.wheels.map(w => w.its));
-  S.items = S.world.concat(aiIts, marks, TG.body, TG.cab, wheels, TG.inner);
+  /* バック時の小さなモニター（スマホではダッシュのモニターが操作ボタンに隠れるため） */
+  const uq = (n, uv) => quad(new K.Geo(), [-0.5, -0.5, 0], [0.5, -0.5, 0], [0.5, 0.5, 0], [-0.5, 0.5, 0], [0, 0, 1], uv);
+  S.pip = { mesh: own(uq(1, [[1, 0], [0, 0], [0, 1], [1, 1]])), mat: K.mat({ color: '#ffffff', unlit: true, cast: false, recv: false }), m: M.ident(), hidden: true };
+  S.pipB = { mesh: own(uq(1)), mat: K.mat({ color: '#0b0d10', unlit: true, cast: false, recv: false, emis: [0.01, 0.012, 0.015] }), m: M.ident(), hidden: true };
+  S.items = S.world.concat(aiIts, marks, TG.body, TG.cab, wheels, TG.inner, [S.pip, S.pipB]);
   S.mirItems = S.world.concat(aiIts, marks, TG.body, wheels, TG.cab.filter(it => !it.nomir));
   S.bcItems = S.world.concat(aiIts, marks, S.bcGuide);
   S.scene = { items: S.items, env: S.env, cam: { pos: [0, 10, 0], target: [1, 0, 0], up: [0, 1, 0], fov: 1, near: 0.05, far: 520 }, shadow: { center: [0, 0, 0], radius: 48 } };
@@ -6046,7 +6072,7 @@ const COIN = '<svg class="ic coin" style="width:1.2em;height:1.2em"><use href="#
 
 /* ============ セーブ ============ */
 const KEY = 'chushado_save_v1';
-const DEF_SET = { steer: 'wheel', autoCenter: true, sens: 1, guide: true, sensor: true, creep: false, sound: true, vol: 0.8, vib: true, cam: 'follow', revBeep: true };
+const DEF_SET = { steer: 'wheel', autoCenter: true, sens: 1, guide: true, sensor: true, creep: false, sound: true, vol: 0.8, vib: true, cam: 'follow', revBeep: true, tkFov: 'm' };
 const DEF = () => ({ v: 2, coins: 500, xp: 0, cleared: 0, stars: {}, best: {}, owned: ['sedan'], car: 'sedan', colors: {}, daily: 0, tut: false, rotX: false, set: Object.assign({}, DEF_SET) });
 let S = DEF();
 function loadSave(hot) {
@@ -6373,6 +6399,7 @@ function openSettings(inGame) {
 }
 function onSettingChanged() { save(); applySettings(); }
 function applySettings() {
+  if (window.Truck3D && Truck3D.setFov) Truck3D.setFov(S.set.tkFov);
   $('#ctl-wheel').classList.toggle('hidden', S.set.steer !== 'wheel');
   $('#ctl-slider').classList.toggle('hidden', S.set.steer !== 'slider');
   $('#h-guide').classList.toggle('on', S.set.guide); $('#h-sensor').classList.toggle('on', S.set.sensor);
@@ -6910,7 +6937,7 @@ function startTruck(ri) {
   $('#snowfx').classList.add('hidden'); $('#duskfx').classList.add('hidden'); $('#park').classList.add('hidden'); $('#hint').classList.remove('show');
   if (!T3.load(run)) { toast('3Dの準備ができませんでした', 2200); show('garage'); return; }
   Object.assign(TK, { mir: 0, mirKey: 0, mirBtn: 0, gapT: 0, voiceT: 0, revT: 0, airArm: false, view: 'cab', hud: {}, hintShown: {}, introT: 0 });
-  T3.setView('cab'); T3.resetLook(); T3.mirror(0);
+  T3.setView('cab'); T3.resetLook(); T3.mirror(0); T3.setFov(S.set.tkFov);
   I.wheelDeg = 0; I.sl = 0; I.acc = I.brk = false; I.kSteer = 0; I.keys = {};
   setGear(1, true); $('#tk-feed').innerHTML = '';
   const R_ = run.R;
@@ -6941,6 +6968,7 @@ function openTruckPause() {
   G.state = 'pause'; Sfx.engineSet(0, 0); Sfx.hornOff();
   const run = TK.run, R_ = run.R;
   modal(`${HD('', 'i-pause', `トラック配送・ルート${R_.id}「${R_.name}」`, 'ポーズ')}<div class="sh-body">
+    <div class="set"><label>運転席の視野</label><div class="seg">${[['n', 'リアル（狭め）'], ['m', '標準'], ['w', '広い']].map(o => `<button class="${S.set.tkFov === o[0] ? 'on' : ''}" data-seg="tkFov" data-v="${o[0]}">${o[1]}</button>`).join('')}</div></div>
     <div class="res"><span>安全点</span><em>${run.score}</em><span>配達</span><em>${run.targets.indexOf(run.dock)} / ${run.targets.length}</em><span>走行距離</span><em>${(run.odo / 1000).toFixed(2)} km</em></div>
     <div class="sh-row"><button class="btn go" data-act="resume"><svg><use href="#i-play"/></svg>つづける</button></div>
     <div class="sh-row"><button class="btn ghost" data-act="retry"><svg><use href="#i-retry"/></svg>やり直す</button><button class="btn ghost" data-act="settings"><svg><use href="#i-gear"/></svg>設定</button><button class="btn ghost" data-act="quit"><svg><use href="#i-garage"/></svg>ガレージへ</button></div></div>`, {
